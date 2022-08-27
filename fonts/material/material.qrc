@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/fonts/material">
+        <file>MaterialIcons-Regular.ttf</file>
+        <file>materialdesignicons-webfont.ttf</file>
+    </qresource>
+</RCC>
