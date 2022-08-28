@@ -1,6 +1,8 @@
 # git-chart-drawer
 Draw charts from your Git repository using Qt and QtCharts
 
+![](https://github.com/realbardia/git-chart-drawer/raw/main/screenshots/screenshot.jpg)
+
 ## How to build?
 
 It's easy like as other Qt projects. Just clone it, build it and install it:
