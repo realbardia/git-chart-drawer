@@ -1,9 +1,10 @@
 #include "commitchartwidget.h"
 
 #include <QtMath>
-#include <QFileInfo>
+#include <QDir>
 #include <QCryptographicHash>
 #include <QImageWriter>
+#include <QJsonDocument>
 
 using namespace QtCharts;
 
@@ -21,8 +22,8 @@ void CommitChartWidget::load(const QString &path)
 {
     mGit->setPath(path);
     mGit->listCommits([path, this](const QList<GitCommands::Commit> &list){
+        Q_EMIT loading(true, 0, list.count());
         loadCommits(path, list);
-        Q_EMIT loading(false, 0, list.count());
     });
 
     Q_EMIT loading(true, 0, 0);
@@ -82,8 +83,84 @@ bool CommitChartWidget::saveTo(const QString &path, int w)
 
     render(&img, QPoint(), QRegion(rect()), QWidget::DrawChildren);
 
+    QFile::remove(path);
     QImageWriter writer(path);
     return writer.write(img);
+}
+
+bool CommitChartWidget::saveJson(const QString &path)
+{
+    QFile f(path);
+    if (!f.open(QFile::WriteOnly))
+        return false;
+
+    QVariantList list;
+
+    QHashIterator<QString, QList<AnalizedCommit>> i(mAnalizeds);
+    while (i.hasNext())
+    {
+        i.next();
+
+        QVariantList commits;
+        for (const auto &a: i.value())
+        {
+            QVariantMap c;
+            c[QStringLiteral("commiter")] = a.commit.commiter;
+            c[QStringLiteral("comment")] = a.commit.comment;
+            c[QStringLiteral("datetime")] = a.commit.datetime;
+            c[QStringLiteral("id")] = a.commit.id;
+            c[QStringLiteral("deletions")] = a.deletions;
+            c[QStringLiteral("insertions")] = a.insertions;
+            c[QStringLiteral("total_files")] = a.totalFiles;
+
+            commits << c;
+        }
+
+        QVariantMap m;
+        m[QStringLiteral("git_repo")] = i.key();
+        m[QStringLiteral("commits")] = commits;
+
+        list << m;
+    }
+
+    f.write( QJsonDocument::fromVariant(list).toJson() );
+    f.close();
+    return true;
+}
+
+bool CommitChartWidget::saveCSV(const QString &path)
+{
+    QFile f(path);
+    if (!f.open(QFile::WriteOnly))
+        return false;
+
+    QString data;
+
+    QHashIterator<QString, QList<AnalizedCommit>> i(mAnalizeds);
+    while (i.hasNext())
+    {
+        i.next();
+        if (!data.isEmpty())
+            data += QStringLiteral("\n");
+
+        data += QStringLiteral("%1,Commiter,Date/Time,Comment,Total Files,Insertions,Deletions\n").arg(i.key());
+
+        for (const auto &a: i.value())
+        {
+            data += QStringLiteral("%1,%2,%3,%4,%5,%6,%7\n")
+                    .arg(a.commit.id)
+                    .arg(a.commit.commiter)
+                    .arg(a.commit.datetime.toString("yyyy/MM/dd hh:mm:ss"))
+                    .arg(a.commit.comment)
+                    .arg(a.totalFiles)
+                    .arg(a.insertions)
+                    .arg(a.deletions);
+        }
+    }
+
+    f.write(data.toUtf8());
+    f.close();
+    return true;
 }
 
 const QDateTime &CommitChartWidget::minDate() const
@@ -112,8 +189,8 @@ void CommitChartWidget::reload()
     while (i.hasNext())
     {
         i.next();
-        QFileInfo inf(i.key());
-        const auto fileName = inf.fileName();
+        QDir inf(i.key());
+        const auto fileName = inf.dirName();
 
         for (const auto &a: i.value())
         {

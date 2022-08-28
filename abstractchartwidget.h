@@ -58,6 +58,9 @@ public Q_SLOTS:
 
 Q_SIGNALS:
 
+protected:
+    void resizeEvent(QResizeEvent *e) Q_DECL_OVERRIDE;
+
 private:
     QtCharts::QChartView *mChart;
 

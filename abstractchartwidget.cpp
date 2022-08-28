@@ -57,10 +57,13 @@ AbstractChartWidget::AbstractChartWidget(QWidget *parent)
     : QWidget(parent)
 {
     mChart = new QChartView;
+    mChart->setRubberBand(QChartView::NoRubberBand);
+    mChart->setAutoFillBackground(true);
+    mChart->setBackgroundRole(QPalette::Base);
 
     auto chart = mChart->chart();
     chart->legend()->hide();
-    chart->setBackgroundBrush(palette().base());
+    chart->setBackgroundBrush(QColor("#fff"));
 
     mLegendsLayout = new QGridLayout;
 
@@ -68,7 +71,11 @@ AbstractChartWidget::AbstractChartWidget(QWidget *parent)
     mLayout->addLayout(mLegendsLayout);
     mLayout->addWidget(mChart);
 
+    auto plt = palette();
+    plt.setColor(QPalette::Base, QColor("#ffffff"));
+
     setAutoFillBackground(true);
+    setPalette(plt);
     setBackgroundRole(QPalette::Base);
 }
 
@@ -134,6 +141,11 @@ void AbstractChartWidget::reload()
 
         legend->addLegend(lgn);
     }
+}
+
+void AbstractChartWidget::resizeEvent(QResizeEvent *e)
+{
+    QWidget::resizeEvent(e);
 }
 
 bool AbstractChartWidget::splineMode() const

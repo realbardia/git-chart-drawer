@@ -1,0 +1,10 @@
+[Desktop Entry]
+Categories=Spreadsheet;
+Comment=Draw charts for git
+Exec=$$SHORTCUT
+GenericName=Git Chart Drawer
+Icon=git-chart-drawer
+Name=Git Chart Drawer
+StartupNotify=true
+Type=Application
+Version=1.0

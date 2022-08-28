@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QToolButton>
 #include <QDesktopServices>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -57,6 +58,93 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+CommitChartWidget::DataType MainWindow::dataType() const
+{
+    return ui->chart->dataType();
+}
+
+void MainWindow::setDataType(CommitChartWidget::DataType newDataType)
+{
+    ui->chart->setDataType(newDataType);
+    ui->data->setCurrentIndex(static_cast<int>(newDataType));
+}
+
+void MainWindow::setDataType(const QString &dataType)
+{
+    for (int i=0; i<ui->data->count(); i++)
+        if (ui->data->itemText(i).toLower() == dataType.toLower())
+        {
+            ui->data->setCurrentIndex(i);
+            break;
+        }
+}
+
+QStringList MainWindow::dataTypes() const
+{
+    QStringList list;
+    for (int i=0; i<ui->data->count(); i++)
+        list << ui->data->itemText(i).toLower();
+    return list;
+}
+
+CommitChartWidget::ViewType MainWindow::viewType() const
+{
+    return ui->chart->viewType();
+}
+
+void MainWindow::setViewType(CommitChartWidget::ViewType newViewType)
+{
+    ui->chart->setViewType(newViewType);
+    ui->view->setCurrentIndex(static_cast<int>(newViewType));
+}
+
+void MainWindow::setViewType(const QString &viewType)
+{
+    for (int i=0; i<ui->view->count(); i++)
+        if (ui->view->itemText(i).toLower() == viewType.toLower())
+        {
+            ui->view->setCurrentIndex(i);
+            break;
+        }
+}
+
+QStringList MainWindow::viewTypes() const
+{
+    QStringList list;
+    for (int i=0; i<ui->view->count(); i++)
+        list << ui->view->itemText(i).toLower();
+    return list;
+}
+
+AbstractChartWidget::Duration MainWindow::duration() const
+{
+    return ui->chart->duration();
+}
+
+void MainWindow::setDuration(AbstractChartWidget::Duration newDuration)
+{
+    ui->chart->setDuration(newDuration);
+    ui->duration->setCurrentIndex(static_cast<int>(newDuration));
+}
+
+void MainWindow::setDuration(const QString &duration)
+{
+    for (int i=0; i<ui->duration->count(); i++)
+        if (ui->duration->itemText(i).toLower() == duration.toLower())
+        {
+            ui->duration->setCurrentIndex(i);
+            break;
+        }
+}
+
+QStringList MainWindow::durations() const
+{
+    QStringList list;
+    for (int i=0; i<ui->duration->count(); i++)
+        list << ui->duration->itemText(i).toLower();
+    return list;
+}
+
 void MainWindow::on_actionAddProject_triggered()
 {
     QSettings settings;
@@ -64,7 +152,7 @@ void MainWindow::on_actionAddProject_triggered()
     if (path.isEmpty())
         return;
 
-    QFileInfo inf(path);
+    QDir inf(path);
     if (!inf.exists())
     {
         QMessageBox::critical(this, tr("Not found"), tr("Directory not found!"));
@@ -73,11 +161,68 @@ void MainWindow::on_actionAddProject_triggered()
 
     settings.setValue("MainWindow/last_directory", inf.path());
 
-    if (!QFileInfo::exists(path + "/.git"))
+    if (!QDir(path + "/.git").exists())
     {
         QMessageBox::critical(this, tr("Bad repository"), tr("This is not a git repository. Please select a git repository folder."));
         return;
     }
+
+    addPath(path);
+}
+
+void MainWindow::on_chart_loading(bool state, qint32 done, qint32 total)
+{
+    ui->progressBar->setVisible(state);
+    ui->progressBar->setMaximum(total);
+    ui->progressBar->setValue(done);
+
+    if (!state)
+    {
+        mBlockReloading = true;
+        mStartDate->setDateTime(ui->chart->minDate());
+        mStartDate->setEnabled(true);
+
+        mEndDate->setDateTime(ui->chart->maxDate());
+        mEndDate->setEnabled(true);
+
+        Q_EMIT finished();
+    }
+}
+
+void MainWindow::reloadAll(bool force)
+{
+    if (mBlockReloading && !force)
+        return;
+
+    ui->chart->setSplineMode(ui->chartMode->currentIndex());
+    ui->chart->setStartDate(mStartDate->dateTime());
+    ui->chart->setEndDate(mEndDate->dateTime());
+    ui->chart->setDuration( static_cast<AbstractChartWidget::Duration>(ui->duration->currentIndex()) );
+    ui->chart->setViewType( static_cast<CommitChartWidget::ViewType>(ui->view->currentIndex()) );
+    ui->chart->setDataType( static_cast<CommitChartWidget::DataType>(ui->data->currentIndex()) );
+    ui->chart->reload();
+}
+
+bool MainWindow::saveTo(const QString &path, int w)
+{
+    return ui->chart->saveTo(path, w);
+}
+
+bool MainWindow::saveJson(const QString &path)
+{
+    return ui->chart->saveJson(path);
+}
+
+bool MainWindow::saveCSV(const QString &path)
+{
+    return ui->chart->saveCSV(path);
+}
+
+bool MainWindow::addPath(const QString &path)
+{
+    QDir inf(path);
+    if (!inf.exists())
+        return false;
 
     ui->chart->load(path);
 
@@ -122,49 +267,12 @@ void MainWindow::on_actionAddProject_triggered()
     layout->setSpacing(0);
     layout->setContentsMargins(0,0,0,0);
     layout->addWidget(visibleBtn);
-    layout->addWidget(new QLabel(inf.fileName()));
+    layout->addWidget(new QLabel(inf.dirName()));
     layout->addStretch();
     layout->addWidget(delBtn);
 
     ui->listWidget->setItemWidget(item, wgt);
-}
-
-void MainWindow::on_chart_loading(bool state, qint32 done, qint32 total)
-{
-    ui->progressBar->setVisible(state);
-    ui->progressBar->setMaximum(total);
-    ui->progressBar->setValue(done);
-
-    if (!state)
-    {
-        mBlockReloading = true;
-        mStartDate->setDateTime(ui->chart->minDate());
-        mStartDate->setEnabled(true);
-
-        mEndDate->setDateTime(ui->chart->maxDate());
-        mEndDate->setEnabled(true);
-
-        Q_EMIT finished();
-    }
-}
-
-void MainWindow::reloadAll(bool force)
-{
-    if (mBlockReloading && !force)
-        return;
-
-    ui->chart->setSplineMode(ui->chartMode->currentIndex());
-    ui->chart->setStartDate(mStartDate->dateTime());
-    ui->chart->setEndDate(mEndDate->dateTime());
-    ui->chart->setDuration( static_cast<AbstractChartWidget::Duration>(ui->duration->currentIndex()) );
-    ui->chart->setViewType( static_cast<CommitChartWidget::ViewType>(ui->view->currentIndex()) );
-    ui->chart->setDataType( static_cast<CommitChartWidget::DataType>(ui->data->currentIndex()) );
-    ui->chart->reload();
-}
-
-bool MainWindow::saveTo(const QString &path, int w)
-{
-    return ui->chart->saveTo(path, w);
+    return true;
 }
 
 void MainWindow::on_applyBtn_clicked()

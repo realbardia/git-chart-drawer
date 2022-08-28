@@ -53,6 +53,8 @@ public:
 
 public Q_SLOTS:
     bool saveTo(const QString &path, int w = 2500);
+    bool saveJson(const QString &path);
+    bool saveCSV(const QString &path);
 
 Q_SIGNALS:
     void loading(bool state, qint32 done, qint32 total);
